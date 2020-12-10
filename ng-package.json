@@ -5,9 +5,9 @@
     "entryFile": "src/public-api.ts",
     "umdModuleIds": {
       "fs-web": "fs-web",
-      "@ionic-native/ionic-webview/ngx": "@ionic-native/ionic-webview/ngx",
-      "@ionic/angular": "@ionic/angular",
-      "@ionic-native/file/ngx": "@ionic-native/file/ngx"
+      "@ionic-native/ionic-webview": "@ionic-native/ionic-webview",
+      "ionic/angular": "ionic/angular",
+      "@ionic-native/file": "@ionic-native/file"
     }
   },
   "whitelistedNonPeerDependencies" : ["."]

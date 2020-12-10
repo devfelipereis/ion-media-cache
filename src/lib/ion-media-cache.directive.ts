@@ -1,10 +1,19 @@
-import { Directive, OnInit, ElementRef, Input, Output, EventEmitter, Renderer2 } from '@angular/core';
-import { File, FileEntry } from '@ionic-native/file/ngx';
+import {
+  Directive,
+  OnInit,
+  ElementRef,
+  Input,
+  Output,
+  EventEmitter,
+  Renderer2,
+} from '@angular/core';
+import { File, FileEntry } from '@ionic-native/file';
 import { CustomCache, CurrentBlob } from './ion-media-cache';
-import { fromEvent, Subject } from 'rxjs';
+import { Subject } from 'rxjs';
+import { fromEvent } from 'rxjs/observable/fromEvent';
 import { filter, first, take } from 'rxjs/operators';
-import { Platform } from '@ionic/angular';
-import { WebView } from '@ionic-native/ionic-webview/ngx';
+import { Platform } from 'ionic-angular';
+import { WebView } from '@ionic-native/ionic-webview';
 import * as fs from 'fs-web';
 import * as _ from 'lodash';
 
@@ -24,17 +33,28 @@ interface QueueItem {
 
 declare const Ionic: any;
 
-const EXTENSIONS = ['.jpg', '.png', '.jpeg', '.gif', '.svg', '.tiff', '.mp4', '.m4a', '.wav', '.wma', '.3gp'];
+const EXTENSIONS = [
+  '.jpg',
+  '.png',
+  '.jpeg',
+  '.gif',
+  '.svg',
+  '.tiff',
+  '.mp4',
+  '.m4a',
+  '.wav',
+  '.wma',
+  '.3gp',
+];
 
 @Directive({
   // tslint:disable-next-line:directive-selector
   selector: '[customCache]',
   host: {
-    '(ionError)': 'setImageFallback()'
-  }
+    '(ionError)': 'setImageFallback()',
+  },
 })
 export class IonMediaCacheDirective implements OnInit {
-
   private script: any;
   private isJavaScript: boolean;
   config: CustomCache = new CustomCache();
@@ -47,7 +67,9 @@ export class IonMediaCacheDirective implements OnInit {
 
   // tslint:disable-next-line:ban-types
   private initPromiseResolve: Function;
-  private initPromise = new Promise<void>(resolve => this.initPromiseResolve = resolve);
+  private initPromise = new Promise<void>(
+    (resolve) => (this.initPromiseResolve = resolve)
+  );
   private lockSubject = new Subject<boolean>();
   private lock$ = this.lockSubject.asObservable();
   /**
@@ -99,13 +121,14 @@ export class IonMediaCacheDirective implements OnInit {
   @Output() ionImgDidLoad: EventEmitter<any> = new EventEmitter<any>(true);
 
   @Output() ionError: EventEmitter<any> = new EventEmitter<any>(false);
-
+  webview;
   constructor(
     el: ElementRef,
     private file: File,
     private renderer: Renderer2,
-    private platform: Platform,
-    private webview: WebView) {
+    private platform: Platform // private webview: WebViewOriginal
+  ) {
+    this.webview = WebView;
     this.tag = el;
     if (!this.isJavaScript) {
       this.script = document.createElement('script');
@@ -115,16 +138,21 @@ export class IonMediaCacheDirective implements OnInit {
       document.head.appendChild(this.script);
     }
     if (this.isMobile) {
-      fromEvent(document, 'deviceready').pipe(first()).subscribe(res => {
-        this.initCache();
-      });
+      fromEvent(document, 'deviceready')
+        .pipe(first())
+        .subscribe((res) => {
+          this.initCache();
+        });
     } else {
       this.initCache();
     }
   }
 
   get isMobile(): boolean {
-    return this.platform.is('cordova') && (this.platform.is('android') || this.platform.is('ios'));
+    return (
+      this.platform.is('cordova') &&
+      (this.platform.is('android') || this.platform.is('ios'))
+    );
   }
 
   renderSpinner() {
@@ -133,9 +161,15 @@ export class IonMediaCacheDirective implements OnInit {
     }
     if (!this.spinnerDiv) {
       this.spinnerDiv = this.renderer.createElement('div');
-      this.spinnerDiv.className = `${this.className ? this.className + '-' : ''}spinner-div`;
+      this.spinnerDiv.className = `${
+        this.className ? this.className + '-' : ''
+      }spinner-div`;
       this.spinnerDiv.innerHTML = this.config.spinner;
-      this.renderer.setAttribute(this.spinnerDiv, 'style', this.config.spinnerStyle);
+      this.renderer.setAttribute(
+        this.spinnerDiv,
+        'style',
+        this.config.spinnerStyle
+      );
       this.tag.nativeElement.parentElement.appendChild(this.spinnerDiv);
       this._fixStyle(this.spinnerDiv);
     }
@@ -145,12 +179,17 @@ export class IonMediaCacheDirective implements OnInit {
   }
 
   renderFallbackDiv() {
-    if (typeof this.config.fallbackReload === 'boolean' && !this.config.fallbackReload) {
+    if (
+      typeof this.config.fallbackReload === 'boolean' &&
+      !this.config.fallbackReload
+    ) {
       return;
     }
     if (!this.fallbackDiv) {
       this.fallbackDiv = this.renderer.createElement('div');
-      this.fallbackDiv.className = `${this.className ? this.className + '-' : ''}fallback-div`;
+      this.fallbackDiv.className = `${
+        this.className ? this.className + '-' : ''
+      }fallback-div`;
       this.fallbackDiv.innerHTML = this.config.fallbackReload;
       this.fallbackDiv.onclick = (event) => {
         this.fallbackDiv.style.display = 'none';
@@ -158,7 +197,11 @@ export class IonMediaCacheDirective implements OnInit {
         event.stopImmediatePropagation();
         event.stopPropagation();
       };
-      this.renderer.setAttribute(this.fallbackDiv, 'style', this.config.fallbackStyle);
+      this.renderer.setAttribute(
+        this.fallbackDiv,
+        'style',
+        this.config.fallbackStyle
+      );
       this.tag.nativeElement.parentElement.appendChild(this.fallbackDiv);
       this._fixStyle(this.fallbackDiv);
     }
@@ -189,8 +232,9 @@ export class IonMediaCacheDirective implements OnInit {
       //  Important: isWKWebview && isIonicWKWebview must be mutually excluse.
       //  Otherwise the logic for copying to tmp under IOS will fail.
       (this.platform.is('android') && this.webview) ||
-      (this.platform.is('android')) && (location.host == 'localhost:8080') ||
-      (window as any).LiveReload);
+      (this.platform.is('android') && location.host == 'localhost:8080') ||
+      (window as any).LiveReload
+    );
   }
 
   private get isCacheSpaceExceeded(): boolean {
@@ -251,12 +295,14 @@ export class IonMediaCacheDirective implements OnInit {
   private updateImage(imageUrl: string) {
     this.renderSpinner();
     this.renderFallbackDiv();
-    this.getImagePath(imageUrl).then((url: string) => {
-      this.setImage(url);
-    }).catch(() => {
-      this.tag.nativeElement[this.config.render] = this.config.fallbackUrl;
-      this.ionImgDidLoad.emit(true);
-    });
+    this.getImagePath(imageUrl)
+      .then((url: string) => {
+        this.setImage(url);
+      })
+      .catch(() => {
+        this.tag.nativeElement[this.config.render] = this.config.fallbackUrl;
+        this.ionImgDidLoad.emit(true);
+      });
   }
 
   /**
@@ -273,7 +319,9 @@ export class IonMediaCacheDirective implements OnInit {
     await this.ready();
 
     if (!this.isCacheReady) {
-      this.throwWarning('The cache system is not running. Images will be loaded by your browser instead.');
+      this.throwWarning(
+        'The cache system is not running. Images will be loaded by your browser instead.'
+      );
       this.isCacheReady = this.config.enabled;
     }
 
@@ -314,12 +362,18 @@ export class IonMediaCacheDirective implements OnInit {
     this.config.isFallback = false;
     const src = imageUrl || this.config.fallbackUrl;
     if (this.config.render !== 'src') {
-      this.renderer.setStyle(this.tag.nativeElement, this.config.render, `url(${src})`);
+      this.renderer.setStyle(
+        this.tag.nativeElement,
+        this.config.render,
+        `url(${src})`
+      );
     } else if (this.tag.nativeElement[this.config.render] != src) {
       this.tag.nativeElement[this.config.render] = src;
     }
     if (this.tag.nativeElement.nodeName === 'ION-IMG') {
-      this.tag.nativeElement.addEventListener('ionImgWillLoad', () => this.stopSpinner());
+      this.tag.nativeElement.addEventListener('ionImgWillLoad', () =>
+        this.stopSpinner()
+      );
     } else {
       this.tag.nativeElement.onload = () => this.stopSpinner();
       this.tag.nativeElement.onerror = () => this.setImageFallback();
@@ -327,7 +381,11 @@ export class IonMediaCacheDirective implements OnInit {
   }
 
   setImageFallback() {
-    if (!!this.config.fallbackUrl && this.config.fallbackUrl.length > 10 && !this.config.isFallback) {
+    if (
+      !!this.config.fallbackUrl &&
+      this.config.fallbackUrl.length > 10 &&
+      !this.config.isFallback
+    ) {
       this.tag.nativeElement[this.config.render] = this.config.fallbackUrl;
       this.config.isFallback = true;
     }
@@ -352,7 +410,9 @@ export class IonMediaCacheDirective implements OnInit {
     if (this.config.cacheDirectoryType == 'data') {
       return this.file.dataDirectory;
     } else if (this.config.cacheDirectoryType == 'external') {
-      return this.platform.is('android') ? this.file.externalDataDirectory : this.file.documentsDirectory;
+      return this.platform.is('android')
+        ? this.file.externalDataDirectory
+        : this.file.documentsDirectory;
     }
     return this.file.cacheDirectory;
   }
@@ -363,7 +423,11 @@ export class IonMediaCacheDirective implements OnInit {
    * @param resolve
    * @param reject
    */
-  private addItemToQueue(imageUrl: string, resolve?, reject?): void | Promise<any> {
+  private addItemToQueue(
+    imageUrl: string,
+    resolve?,
+    reject?
+  ): void | Promise<any> {
     let p: void | Promise<any>;
 
     if (!resolve && !reject) {
@@ -372,10 +436,8 @@ export class IonMediaCacheDirective implements OnInit {
         reject = rej;
       });
     } else {
-      resolve = resolve || (() => {
-      });
-      reject = reject || (() => {
-      });
+      resolve = resolve || (() => {});
+      reject = reject || (() => {});
     }
 
     this.queue.push({
@@ -412,7 +474,10 @@ export class IonMediaCacheDirective implements OnInit {
       this.processQueue();
 
       // only delete if it's the last/unique occurrence in the queue
-      if (this.currentlyProcessing[currentItem.imageUrl] !== undefined && !this.currentlyInQueue(currentItem.imageUrl)) {
+      if (
+        this.currentlyProcessing[currentItem.imageUrl] !== undefined &&
+        !this.currentlyInQueue(currentItem.imageUrl)
+      ) {
         delete this.currentlyProcessing[currentItem.imageUrl];
       }
     };
@@ -445,31 +510,41 @@ export class IonMediaCacheDirective implements OnInit {
       const localDir = this.dirPath + '/';
       const fileName = this.createFileName(currentItem.imageUrl);
       // error cors https://stackoverflow.com/a/21136980/7638125
-      await fetch(`${this.config.corsFromHeroku ? 'http://cors-anywhere.herokuapp.com/' : ''}${currentItem.imageUrl}`, this.config.httpHeaders).then((response: any) => {
-        return response.blob();
-      }).then(async (blob: Blob) => {
-        if (this.isMobile) {
-          const file = await this.file.writeFile(localDir, fileName, blob, { replace: true }) as FileEntry;
-          if (this.isCacheSpaceExceeded) {
-            this.maintainCacheSize();
+      await fetch(
+        `${
+          this.config.corsFromHeroku
+            ? 'http://cors-anywhere.herokuapp.com/'
+            : ''
+        }${currentItem.imageUrl}`,
+        this.config.httpHeaders
+      )
+        .then((response: any) => {
+          return response.blob();
+        })
+        .then(async (blob: Blob) => {
+          if (this.isMobile) {
+            const file = (await this.file.writeFile(localDir, fileName, blob, {
+              replace: true,
+            })) as FileEntry;
+            if (this.isCacheSpaceExceeded) {
+              this.maintainCacheSize();
+            }
+            await this.addFileToIndex(file);
+          } else {
+            await fs.writeFile(this.dirPath + '/' + fileName, blob);
+            await this.addFileToIndex({ name: fileName });
           }
-          await this.addFileToIndex(file);
-        } else {
-          await fs.writeFile(this.dirPath + '/' + fileName, blob);
-          await this.addFileToIndex({ name: fileName });
-        }
-        const localUrl = await this.getCachedImagePath(currentItem.imageUrl);
-        currentItem.resolve(localUrl);
-        done();
-      }).catch(() => {
-        this.setImage(currentItem.imageUrl);
-        done();
-        console.warn('https://ionicframework.com/docs/troubleshooting/cors');
-      });
+          const localUrl = await this.getCachedImagePath(currentItem.imageUrl);
+          currentItem.resolve(localUrl);
+          done();
+        })
+        .catch(() => {
+          this.setImage(currentItem.imageUrl);
+          done();
+          console.warn('https://ionicframework.com/docs/troubleshooting/cors');
+        });
       this.maintainCacheSize();
-
     })();
-
   }
 
   /**
@@ -477,7 +552,7 @@ export class IonMediaCacheDirective implements OnInit {
    * @param imageUrl Image url to search
    */
   private currentlyInQueue(imageUrl: string) {
-    return this.queue.some(item => item.imageUrl == imageUrl);
+    return this.queue.some((item) => item.imageUrl == imageUrl);
   }
 
   /**
@@ -502,7 +577,10 @@ export class IonMediaCacheDirective implements OnInit {
   getMetadata(fileName): Promise<any> {
     return new Promise((resolve, reject) => {
       fs.readString(this.dirPath + '/' + fileName).then((_blob: Blob) => {
-        const metadata = { size: !!_blob && _blob instanceof Blob ? _blob.size : 0, modificationTime: (new Date()).getTime() };
+        const metadata = {
+          size: !!_blob && _blob instanceof Blob ? _blob.size : 0,
+          modificationTime: new Date().getTime(),
+        };
         resolve(metadata);
         return metadata;
       });
@@ -517,17 +595,20 @@ export class IonMediaCacheDirective implements OnInit {
   private async addFileToIndex(file: FileEntry | any): Promise<any> {
     let metadata;
     if (this.isMobile) {
-      metadata = await new Promise<any>((resolve, reject) => file.getMetadata(resolve, reject));
+      metadata = await new Promise<any>((resolve, reject) =>
+        file.getMetadata(resolve, reject)
+      );
     } else {
       metadata = await this.getMetadata(file.name);
     }
     if (
       this.config.maxCacheAge > -1 &&
-      Date.now() - metadata.modificationTime.getTime() >
-      this.config.maxCacheAge
+      Date.now() - metadata.modificationTime.getTime() > this.config.maxCacheAge
     ) {
       // file age exceeds maximum cache age
-      return this.isMobile ? this.removeFile(file.name) : fs.removeFile(this.dirPath + '/' + file.name);
+      return this.isMobile
+        ? this.removeFile(file.name)
+        : fs.removeFile(this.dirPath + '/' + file.name);
     } else {
       // file age doesn't exceed maximum cache age, or maximum cache age isn't set
       this.currentCacheSize += metadata.size;
@@ -547,11 +628,14 @@ export class IonMediaCacheDirective implements OnInit {
     this.cacheIndex = [];
 
     try {
-      const files = await this.file.listDir(this.getFileCacheDirectory(), this.config.cacheDirectoryName);
+      const files = await this.file.listDir(
+        this.getFileCacheDirectory(),
+        this.config.cacheDirectoryName
+      );
       await Promise.all(files.map(this.addFileToIndex.bind(this)));
       // Sort items by date. Most recent to oldest.
       this.cacheIndex = this.cacheIndex.sort(
-        (a: IndexItem, b: IndexItem): number => (a > b ? -1 : a < b ? 1 : 0),
+        (a: IndexItem, b: IndexItem): number => (a > b ? -1 : a < b ? 1 : 0)
       );
       this.indexed = true;
     } catch (err) {
@@ -596,11 +680,17 @@ export class IonMediaCacheDirective implements OnInit {
    * @param file The name of the file to remove
    */
   private async removeFile(file: string): Promise<any> {
-    await this.file.removeFile(this.getFileCacheDirectory() + this.config.cacheDirectoryName, file);
+    await this.file.removeFile(
+      this.getFileCacheDirectory() + this.config.cacheDirectoryName,
+      file
+    );
 
     if (this.isWKWebView && !this.isIonicWKWebView) {
       try {
-        return this.file.removeFile(this.file.tempDirectory + this.config.cacheDirectoryName, file);
+        return this.file.removeFile(
+          this.file.tempDirectory + this.config.cacheDirectoryName,
+          file
+        );
       } catch (err) {
         // Noop catch. Removing the files from tempDirectory might fail, as it is not persistent.
       }
@@ -624,20 +714,26 @@ export class IonMediaCacheDirective implements OnInit {
     }
 
     const fileName = this.createFileName(url);
-    const tempDirPath = `${this.isMobile ? this.file.tempDirectory : ''}${this.config.cacheDirectoryName}`;
+    const tempDirPath = `${this.isMobile ? this.file.tempDirectory : ''}${
+      this.config.cacheDirectoryName
+    }`;
 
     try {
-
       if (this.isMobile) {
         // check if exists
-        const fileEntry = await this.file.resolveLocalFilesystemUrl(this.dirPath + '/' + fileName) as FileEntry;
+        const fileEntry = (await this.file.resolveLocalFilesystemUrl(
+          this.dirPath + '/' + fileName
+        )) as FileEntry;
 
         // file exists in cache
         if (this.config.imageReturnType == 'base64') {
           // read the file as data url and return the base64 string.
           // should always be successful as the existence of the file
           // is already ensured
-          const base64: string = await this.file.readAsDataURL(this.dirPath, fileName);
+          const base64: string = await this.file.readAsDataURL(
+            this.dirPath,
+            fileName
+          );
           return base64.replace('data:null', 'data:*/*');
         } else if (this.config.imageReturnType !== 'uri') {
           return;
@@ -657,15 +753,21 @@ export class IonMediaCacheDirective implements OnInit {
 
         // check if file already exists in temp directory
         try {
-          const tempFileEntry = await this.file.resolveLocalFilesystemUrl(tempDirPath + '/' + fileName) as FileEntry;
+          const tempFileEntry = (await this.file.resolveLocalFilesystemUrl(
+            tempDirPath + '/' + fileName
+          )) as FileEntry;
           // file exists in temp directory
           // return native path
           return this.normalizeUrl(tempFileEntry);
         } catch (err) {
           // file does not yet exist in the temp directory.
           // copy it!
-          const tempFileEntry = await this.file
-            .copyFile(this.dirPath, fileName, tempDirPath, fileName) as FileEntry;
+          const tempFileEntry = (await this.file.copyFile(
+            this.dirPath,
+            fileName,
+            tempDirPath,
+            fileName
+          )) as FileEntry;
 
           // now the file exists in the temp directory
           // return native path
@@ -676,21 +778,32 @@ export class IonMediaCacheDirective implements OnInit {
         if (!currentBlob) {
           currentBlob = new CurrentBlob();
         }
-        return await fs.readString(this.dirPath + '/' + fileName).then(async (blob: Blob) => {
-          if (!!blob) {
-            if (blob.type === 'text/html' || blob.type === 'application/octet-stream') {
-              await fs.removeFile(this.dirPath + '/' + fileName);
-            } else {
-              if (currentBlob.url != url) {
-                (window as any).IonMediaCache[url] = new CurrentBlob({ url, blob, objectUrl: window.URL.createObjectURL(blob), path: this.dirPath + '/' + fileName });
-                currentBlob = (window as any).IonMediaCache[url];
+        return await fs
+          .readString(this.dirPath + '/' + fileName)
+          .then(async (blob: Blob) => {
+            if (!!blob) {
+              if (
+                blob.type === 'text/html' ||
+                blob.type === 'application/octet-stream'
+              ) {
+                await fs.removeFile(this.dirPath + '/' + fileName);
+              } else {
+                if (currentBlob.url != url) {
+                  (window as any).IonMediaCache[url] = new CurrentBlob({
+                    url,
+                    blob,
+                    objectUrl: window.URL.createObjectURL(blob),
+                    path: this.dirPath + '/' + fileName,
+                  });
+                  currentBlob = (window as any).IonMediaCache[url];
+                }
+                return currentBlob.objectUrl;
               }
-              return currentBlob.objectUrl;
             }
-          }
-        }).catch((err) => {
-          throw (err);
-        });
+          })
+          .catch((err) => {
+            throw err;
+          });
       }
     } catch (err) {
       throw new Error('File does not exist');
@@ -756,12 +869,23 @@ export class IonMediaCacheDirective implements OnInit {
 
     if (replace) {
       // create or replace the cache directory
-      cacheDirectoryPromise = this.file.createDir(this.getFileCacheDirectory(), this.config.cacheDirectoryName, replace);
+      cacheDirectoryPromise = this.file.createDir(
+        this.getFileCacheDirectory(),
+        this.config.cacheDirectoryName,
+        replace
+      );
     } else {
       // check if the cache directory exists.
       // if it does not exist create it!
-      cacheDirectoryPromise = this.cacheDirectoryExists(this.getFileCacheDirectory())
-        .catch(() => this.file.createDir(this.getFileCacheDirectory(), this.config.cacheDirectoryName, false));
+      cacheDirectoryPromise = this.cacheDirectoryExists(
+        this.getFileCacheDirectory()
+      ).catch(() =>
+        this.file.createDir(
+          this.getFileCacheDirectory(),
+          this.config.cacheDirectoryName,
+          false
+        )
+      );
     }
 
     if (this.isWKWebView && !this.isIonicWKWebView) {
@@ -770,19 +894,19 @@ export class IonMediaCacheDirective implements OnInit {
         tempDirectoryPromise = this.file.createDir(
           this.file.tempDirectory,
           this.config.cacheDirectoryName,
-          replace,
+          replace
         );
       } else {
         // check if the temp directory exists.
         // if it does not exist create it!
         tempDirectoryPromise = this.cacheDirectoryExists(
-          this.file.tempDirectory,
+          this.file.tempDirectory
         ).catch(() =>
           this.file.createDir(
             this.file.tempDirectory,
             this.config.cacheDirectoryName,
-            false,
-          ),
+            false
+          )
         );
       }
     } else {
@@ -840,11 +964,14 @@ export class IonMediaCacheDirective implements OnInit {
   private getExtensionFromUrl(url: string): string {
     const urlWitoutParams = url.split(/\#|\?/)[0];
     // tslint:disable-next-line:no-bitwise
-    const ext: string = (urlWitoutParams.substr((~-urlWitoutParams.lastIndexOf('.') >>> 0) + 1) || '').toLowerCase();
+    const ext: string = (
+      urlWitoutParams.substr((~-urlWitoutParams.lastIndexOf('.') >>> 0) + 1) ||
+      ''
+    ).toLowerCase();
 
-    return (
-      EXTENSIONS.indexOf(ext) >= 0 ? ext : this.config.fallbackFileNameCachedExtension
-    );
+    return EXTENSIONS.indexOf(ext) >= 0
+      ? ext
+      : this.config.fallbackFileNameCachedExtension;
   }
 
   /**
@@ -862,13 +989,17 @@ export class IonMediaCacheDirective implements OnInit {
 
     this.runLocked(async () => {
       const fileName = this.createFileName(imageUrl);
-      const route = this.getFileCacheDirectory() + this.config.cacheDirectoryName;
+      const route =
+        this.getFileCacheDirectory() + this.config.cacheDirectoryName;
       // pause any operations
       try {
         await this.file.removeFile(route, fileName);
 
         if (this.isWKWebView && !this.isIonicWKWebView) {
-          await this.file.removeFile(this.file.tempDirectory + this.config.cacheDirectoryName, fileName);
+          await this.file.removeFile(
+            this.file.tempDirectory + this.config.cacheDirectoryName,
+            fileName
+          );
         }
       } catch (err) {
         this.throwError(err);
@@ -890,12 +1021,18 @@ export class IonMediaCacheDirective implements OnInit {
 
     this.runLocked(async () => {
       try {
-        await this.file.removeRecursively(this.getFileCacheDirectory(), this.config.cacheDirectoryName);
+        await this.file.removeRecursively(
+          this.getFileCacheDirectory(),
+          this.config.cacheDirectoryName
+        );
 
         if (this.isWKWebView && !this.isIonicWKWebView) {
           // also clear the temp files
           try {
-            this.file.removeRecursively(this.file.tempDirectory, this.config.cacheDirectoryName);
+            this.file.removeRecursively(
+              this.file.tempDirectory,
+              this.config.cacheDirectoryName
+            );
           } catch (err) {
             // Noop catch. Removing the tempDirectory might fail,
             // as it is not persistent.
@@ -910,16 +1047,14 @@ export class IonMediaCacheDirective implements OnInit {
   }
 
   private getLockedState(): Promise<boolean> {
-    return this.lock$
-      .pipe(take(1))
-      .toPromise();
+    return this.lock$.pipe(take(1)).toPromise();
   }
 
   private awaitUnlocked(): Promise<boolean> {
     return this.lock$
       .pipe(
-        filter(locked => !!locked),
-        take(1),
+        filter((locked) => !!locked),
+        take(1)
       )
       .toPromise();
   }
@@ -952,5 +1087,4 @@ export class IonMediaCacheDirective implements OnInit {
       return this.processLockedQueue();
     }
   }
-
 }
